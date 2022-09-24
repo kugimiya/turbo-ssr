@@ -1,3 +1,4 @@
 node_modules
 src/lib/dist/**/*.js*
 src/lib/dist/**/*.tsx
+yarn-error.log
