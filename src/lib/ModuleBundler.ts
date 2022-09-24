@@ -1,9 +1,9 @@
 import path from 'path';
 import fs from 'fs/promises';
 import webpack, { Compiler } from 'webpack';
-import { clientWrapper } from './const';
+import { clientBundleWrapper } from './templates/clientBundleWrapper';
 
-export class Webpack {
+export class ModuleBundler {
   instance: Compiler;
 
   constructor(private name: string, private sourcePath: string, private mode: 'production' | 'development' | 'none') {
@@ -37,20 +37,27 @@ export class Webpack {
   public async run() {
     // Готовим обёртку
     const wrapperOutputPath = path.resolve(__dirname, 'dist', 'wrappers', `${this.name}.tsx`);
-    await fs.writeFile(wrapperOutputPath, clientWrapper(this.sourcePath));
+    const modulePath = process.platform === "win32" 
+      ? this.sourcePath.split('\\').join('/') // резолвинг es modules не работает с path delimiter виндовса
+      : this.sourcePath;
+    await fs.writeFile(wrapperOutputPath, clientBundleWrapper(modulePath));
 
-    // Рендерим
-    this.instance.run((runErr, stats) => {
-      console.log(`Build client bundle for "${this.name}", ${stats?.compilation.endTime - stats?.compilation.startTime}ms`);
-
-      if (runErr) {
-        console.log({ runErr });
-      }
-
-      this.instance.close((closeErr) => {
-        if (closeErr) {
-          console.log({ closeErr });
+    // Рендерим клиентский бандл
+    return new Promise((resolve, reject) => {
+      this.instance.run((runErr, stats) => {
+        console.log(`Build client bundle for "${this.name}", ${stats?.compilation.endTime - stats?.compilation.startTime}ms`);
+  
+        if (runErr) {
+          reject(runErr);
         }
+
+        this.instance.close((closeErr) => {
+          if (closeErr) {
+            reject(closeErr)
+          }
+
+          resolve(stats);
+        });
       });
     });
   }
