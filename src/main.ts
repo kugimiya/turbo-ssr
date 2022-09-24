@@ -1,7 +1,7 @@
 
 import cluster from 'cluster';
 import path from 'path';
-import { Bundler } from './lib/Bundler';
+import { ModuleBundler } from './lib/ModuleBundler';
 import { Server } from './lib/Server';
 import { sleep } from './lib/utils/sleep';
 
@@ -9,7 +9,22 @@ const pagesPath = path.join(process.cwd(), 'src', 'pages');
 const port = 3000;
 
 const mainPrimary = async () => {
-  await Bundler(pagesPath);
+  console.log('Building client bundles...');
+
+  const bundler = new ModuleBundler(pagesPath, 'production');
+  const stats = await bundler.run();
+  
+  if (stats.hasErrors()) {
+    console.log(stats.compilation.errors);
+    return;
+  } else {
+    console.log('Builded bundles info: ');
+
+    const entries = [...stats.compilation.assetsInfo.entries()];
+    entries.map(([key, data]) => {
+      console.log(`  Chunk '${key}', size: ${Number(data?.size) / 1000}kB`);
+    });
+  }
 
   let threadsCount = (require('os').cpus().length) - 1;
   if (threadsCount === 0) {

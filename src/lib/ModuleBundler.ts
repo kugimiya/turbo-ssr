@@ -4,14 +4,31 @@ import webpack, { Compiler } from 'webpack';
 import { clientBundleWrapper } from './templates/clientBundleWrapper';
 
 export class ModuleBundler {
-  instance: Compiler;
+  constructor(private pagesDirPath: string, private mode: 'production' | 'development' | 'none') {}
 
-  constructor(private name: string, private sourcePath: string, private mode: 'production' | 'development' | 'none') {
-    this.instance = webpack({
-      name,
-      mode,
-      entry: path.resolve(__dirname, 'dist', 'wrappers', `${name}.tsx`),
-      target: 'web',
+  private get outputPath(): string {
+    return path.resolve(__dirname, 'dist', 'scripts');
+  }
+
+  private getModulePath(sourcePath: string): string {
+    return process.platform === "win32" 
+      ? sourcePath.split('\\').join('/') // резолвинг es modules не работает с path delimiter виндовса
+      : sourcePath;
+  }
+
+  private getWrapperPath(name: string): string {
+    return path.resolve(__dirname, 'dist', 'wrappers', `${name}.tsx`);
+  }
+
+  private getInstance(entries: Record<string, unknown>): Compiler {
+    return webpack({
+      name: 'config',
+      mode: this.mode,
+      entry: {
+        shared: ['react', 'react-dom'],
+        ...entries
+      },
+      target: ['web', 'es5'],
       resolve: {
         extensions: ['.tsx', '.ts', '.js', '.jsx'],
       },
@@ -25,38 +42,51 @@ export class ModuleBundler {
         ]
       },
       output: {
-        path: path.resolve(__dirname, 'dist', 'scripts'),
-        filename: `${name}.js`,
+        path: this.outputPath,
+        filename: `[name].js`,
         library: {
           type: 'umd',
         },
       },
+      optimization: {
+        mergeDuplicateChunks: true,
+        nodeEnv: this.mode,
+        minimize: true,
+      }
     });
   }
 
-  public async run() {
-    // Готовим обёртку
-    const wrapperOutputPath = path.resolve(__dirname, 'dist', 'wrappers', `${this.name}.tsx`);
-    const modulePath = process.platform === "win32" 
-      ? this.sourcePath.split('\\').join('/') // резолвинг es modules не работает с path delimiter виндовса
-      : this.sourcePath;
-    await fs.writeFile(wrapperOutputPath, clientBundleWrapper(modulePath));
+  public async run(): Promise<webpack.Stats> {
+    const entries = await fs.readdir(this.pagesDirPath);
+    const entriesMap: Record<string, unknown> = {};
+
+    for (let fileName of entries) {
+      // Готовим обёртку
+      const [name] = fileName.split('.tsx');
+      entriesMap[name] = {
+        import: this.getWrapperPath(name),
+        dependOn: 'shared',
+        asyncChunks: true,
+      };
+      await fs.writeFile(this.getWrapperPath(name), clientBundleWrapper(this.getModulePath(`${this.pagesDirPath}/${name}`)));
+    }
 
     // Рендерим клиентский бандл
     return new Promise((resolve, reject) => {
-      this.instance.run((runErr, stats) => {
-        console.log(`Build client bundle for "${this.name}", ${stats?.compilation.endTime - stats?.compilation.startTime}ms`);
+      const instance = this.getInstance(entriesMap);
+      instance.run((runErr, stats) => {
+        console.log(`Builded client bundles, ${stats?.compilation.endTime - stats?.compilation.startTime}ms`);
   
         if (runErr) {
           reject(runErr);
         }
 
-        this.instance.close((closeErr) => {
+        instance.close((closeErr) => {
           if (closeErr) {
             reject(closeErr)
           }
 
-          resolve(stats);
+          resolve(stats as webpack.Stats);
         });
       });
     });

@@ -9,6 +9,7 @@ export const baseHtml = (content: string, scriptBundlePath: string, propsJson: s
   </head>
   <body>
     <div id="root">${content}</div>
+    <script src="/scripts/shared.js"></script>
     <script src="${scriptBundlePath}"></script>
   </body>
 </html>
