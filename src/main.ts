@@ -18,9 +18,9 @@ const mainPrimary = async () => {
   printWebpackStats(stats);
 
   let threadsCount = (require('os').cpus().length) - 1;
-  //if (threadsCount === 0) {
+  if (threadsCount === 0) {
     threadsCount = 1;
-  //}
+  }
 
   cluster.on('online', (_) => console.log(`Spawn worker (#${_.id}, pid ${_.process.pid})`));
   cluster.on('exit', (_) => {
