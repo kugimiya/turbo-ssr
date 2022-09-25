@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import webpack, { Compiler } from 'webpack';
 import { clientBundleWrapper } from './templates/clientBundleWrapper';
+import { printWebpackStats } from './utils/printWebpackStats';
 
 export class ModuleBundler {
   constructor(private pagesDirPath: string, private mode: 'production' | 'development' | 'none') {}
@@ -21,9 +22,18 @@ export class ModuleBundler {
   }
 
   private getInstance(entries: Record<string, unknown>): Compiler {
+    const webpackCallback = this.mode === 'production' 
+      ? undefined 
+      : (_err: unknown, stats: webpack.Stats | undefined) => {
+        printWebpackStats(stats);
+      };
+
     return webpack({
       name: 'config',
+      cache: true,
       mode: this.mode,
+      devtool: this.mode === 'production' ? false : 'inline-source-map',
+      watch: this.mode !== 'production',
       entry: {
         shared: ['react', 'react-dom'],
         ...entries
@@ -53,10 +63,10 @@ export class ModuleBundler {
         nodeEnv: this.mode,
         minimize: true,
       }
-    });
+    }, webpackCallback);
   }
 
-  public async run(): Promise<webpack.Stats> {
+  public async run(): Promise<webpack.Stats | undefined> {
     const entries = await fs.readdir(this.pagesDirPath);
     const entriesMap: Record<string, unknown> = {};
 
@@ -74,21 +84,26 @@ export class ModuleBundler {
     // Рендерим клиентский бандл
     return new Promise((resolve, reject) => {
       const instance = this.getInstance(entriesMap);
-      instance.run((runErr, stats) => {
-        console.log(`Builded client bundles, ${stats?.compilation.endTime - stats?.compilation.startTime}ms`);
-  
-        if (runErr) {
-          reject(runErr);
-        }
 
-        instance.close((closeErr) => {
-          if (closeErr) {
-            reject(closeErr)
+      if (this.mode === 'production') {
+        instance.run((runErr, stats) => {
+          console.log(`Builded client bundles, ${stats?.compilation.endTime - stats?.compilation.startTime}ms`);
+    
+          if (runErr) {
+            reject(runErr);
           }
 
-          resolve(stats as webpack.Stats);
+          instance.close((closeErr) => {
+            if (closeErr) {
+              reject(closeErr)
+            }
+
+            resolve(stats as webpack.Stats);
+          });
         });
-      });
+      } else {
+        resolve(undefined);
+      }
     });
   }
 }

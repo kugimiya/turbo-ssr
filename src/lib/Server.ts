@@ -10,6 +10,7 @@ export class Server {
   constructor(
     private pagesDirPath: string,
     private listenPort: number,
+    private mode: 'production' | 'development' | 'none',
   ) {
     this.router = express();
   }
@@ -24,10 +25,8 @@ export class Server {
     const pages = await fs.readdir(this.pagesDirPath);
 
     for (let pageFName of pages) {
-      const module = await import(`${this.pagesDirPath}/${pageFName}`);
-
       const [route] = pageFName.split('.tsx');
-      const renderer = ModuleRenderer(module);
+      const renderer = await ModuleRenderer(`${this.pagesDirPath}/${pageFName}`, this.mode);
 
       this.bindRoute(route, renderer);
     }
