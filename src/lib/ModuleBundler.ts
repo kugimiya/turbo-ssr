@@ -5,10 +5,10 @@ import { clientBundleWrapper } from './templates/clientBundleWrapper';
 import { printWebpackStats } from './utils/printWebpackStats';
 
 export class ModuleBundler {
-  constructor(private pagesDirPath: string, private mode: 'production' | 'development' | 'none') {}
+  constructor(private pagesDirPath: string, private distPath: string, private mode: 'production' | 'development' | 'none') {}
 
   private get outputPath(): string {
-    return path.resolve(__dirname, 'dist', 'scripts');
+    return path.resolve(this.distPath, 'scripts');
   }
 
   private getModulePath(sourcePath: string): string {
@@ -18,7 +18,7 @@ export class ModuleBundler {
   }
 
   private getWrapperPath(name: string): string {
-    return path.resolve(__dirname, 'dist', 'wrappers', `${name}.tsx`);
+    return path.resolve(this.distPath, 'wrappers', `${name}.tsx`);
   }
 
   private getInstance(entries: Record<string, unknown>): Compiler {

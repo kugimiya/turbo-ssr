@@ -1,4 +1,4 @@
 node_modules
-src/lib/dist/**/*.js*
-src/lib/dist/**/*.tsx
+dist
+pages
 yarn-error.log

@@ -9,6 +9,7 @@ export class Server {
 
   constructor(
     private pagesDirPath: string,
+    private distPath: string,
     private listenPort: number,
     private mode: 'production' | 'development' | 'none',
   ) {
@@ -20,7 +21,7 @@ export class Server {
   }
 
   public async bindRoutes() {
-    this.router.use('/scripts', express.static(path.resolve(__dirname, 'dist', 'scripts')));
+    this.router.use('/scripts', express.static(path.resolve(this.distPath, 'scripts')));
 
     const pages = await fs.readdir(this.pagesDirPath);
 
