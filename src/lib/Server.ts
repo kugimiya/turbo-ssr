@@ -12,6 +12,8 @@ export class Server {
     private distPath: string,
     private listenPort: number,
     private mode: 'production' | 'development' | 'none',
+    private clientReactPath: string,
+    private clientReactDomServerPath: string,
   ) {
     this.router = express();
   }
@@ -27,7 +29,7 @@ export class Server {
 
     for (let pageFName of pages) {
       const [route] = pageFName.split('.tsx');
-      const renderer = await ModuleRenderer(`${this.pagesDirPath}/${pageFName}`, this.mode);
+      const renderer = await ModuleRenderer(`${this.pagesDirPath}/${pageFName}`, this.mode, this.clientReactPath, this.clientReactDomServerPath, this.distPath);
 
       this.bindRoute(route, renderer);
     }

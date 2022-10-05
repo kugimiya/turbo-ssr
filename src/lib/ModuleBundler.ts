@@ -5,10 +5,17 @@ import { clientBundleWrapper } from './templates/clientBundleWrapper';
 import { printWebpackStats } from './utils/printWebpackStats';
 
 export class ModuleBundler {
-  constructor(private pagesDirPath: string, private distPath: string, private mode: 'production' | 'development' | 'none') {}
+  private allowShared = false;
+
+  constructor(
+    private pagesDirPath: string, 
+    private distPath: string, 
+    private destDir: string,
+    private mode: 'production' | 'development' | 'none',
+  ) {}
 
   private get outputPath(): string {
-    return path.resolve(this.distPath, 'scripts');
+    return path.resolve(this.distPath, this.destDir);
   }
 
   private getModulePath(sourcePath: string): string {
@@ -25,6 +32,9 @@ export class ModuleBundler {
     const webpackCallback = this.mode === 'production' 
       ? undefined 
       : (_err: unknown, stats: webpack.Stats | undefined) => {
+        if (_err) {
+          console.log('Webpack Error: ', _err);
+        }
         printWebpackStats(stats);
       };
 
@@ -35,8 +45,8 @@ export class ModuleBundler {
       devtool: this.mode === 'production' ? false : 'inline-source-map',
       watch: this.mode !== 'production',
       entry: {
-        shared: ['react', 'react-dom'],
-        ...entries
+        ...(this.allowShared ? { shared: ['react', 'react-dom/client'] } : {}),
+        ...entries as any
       },
       target: ['web', 'es5'],
       resolve: {
@@ -55,13 +65,13 @@ export class ModuleBundler {
         path: this.outputPath,
         filename: `[name].js`,
         library: {
-          type: 'umd',
+          type: 'commonjs',
         },
       },
       optimization: {
         mergeDuplicateChunks: true,
         nodeEnv: this.mode,
-        minimize: true,
+        minimize: this.mode === 'production',
       }
     }, webpackCallback);
   }
@@ -75,10 +85,13 @@ export class ModuleBundler {
       const [name] = fileName.split('.tsx');
       entriesMap[name] = {
         import: this.getWrapperPath(name),
-        dependOn: 'shared',
-        asyncChunks: true,
+        dependOn: this.allowShared ? 'shared' : undefined,
       };
-      await fs.writeFile(this.getWrapperPath(name), clientBundleWrapper(this.getModulePath(`${this.pagesDirPath}/${name}`)));
+
+      await fs.writeFile(
+        this.getWrapperPath(name), 
+        clientBundleWrapper(this.getModulePath(`${this.pagesDirPath}/${name}`))
+      );
     }
 
     // Рендерим клиентский бандл

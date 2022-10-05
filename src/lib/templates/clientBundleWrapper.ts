@@ -1,4 +1,4 @@
-export const clientBundleWrapper = (pagePath: string) => `
+export const clientBundleWrapper = (pagePath: string) => `\
 import ReactDOM from 'react-dom/client';
 import React from 'react';
 import Component from '${pagePath}';
@@ -13,7 +13,9 @@ let root = document.getElementById('root');
 if (root) {
   ReactDOM.hydrateRoot(
     root,
-    <Component {...(window as unknown as Window & { __SERVER_PROPS: Props }).__SERVER_PROPS} />
+    <React.StrictMode>
+      <Component {...(window as unknown as Window & { __SERVER_PROPS: Props }).__SERVER_PROPS} />
+    </React.StrictMode>
   );
 }
 `;
